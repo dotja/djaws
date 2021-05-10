@@ -92,7 +92,7 @@ aws ecr list-images --repository-name myproject
 aws ecr batch-delete-image --repository-name myproject --image-ids imageDigest=<the image digest>
 ```
 
-After the initial image is built (which does the DB migration), you will be able to change the `db_init.sh` script into an init.sh script that lacks the DB migration part and that will be used by the Task later on.
+After the initial image is built (which does the DB migration), you will be able to change the `db_init.sh` script into an `init.sh` script that lacks the DB migration part and that will be used by the Task later on.
 
 2. The VPC stack
 
