@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create the role for the ECS task.
+Parameters:
+  EnvName:
+    Description: The environment name.
+    Type: String
+    Default: 'PROD'
+
+Resources:
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: AmazonECSTaskExecutionRolePolicy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+
+                  ##secret manager and parameters
+                  - 'kms:Decrypt'
+                  - 'secretsmanager:GetSecretValue'
+                  - 'ssm:GetParameter'
+                  #- 'ssm:*'
+
+                  ## database
+                  - 'rds-db:connect'
+
+                  ##  load balancing
+                  - 'ec2:AttachNetworkInterface'
+                  - 'ec2:CreateNetworkInterface'
+                  - 'ec2:CreateNetworkInterfacePermission'
+                  - 'ec2:DeleteNetworkInterface'
+                  - 'ec2:DeleteNetworkInterfacePermission'
+                  - 'ec2:Describe*'
+                  - 'ec2:DetachNetworkInterface'
+                  - 'elasticloadbalancing:DeregisterInstancesFromLoadBalancer'
+                  - 'elasticloadbalancing:DeregisterTargets'
+                  - 'elasticloadbalancing:Describe*'
+                  - 'elasticloadbalancing:RegisterInstancesWithLoadBalancer'
+                  - 'elasticloadbalancing:RegisterTargets'
+
+                  ## S3
+                  - 's3:*Object'
+                  - 's3:*'
+
+                  ## container registry
+                  - 'ecr:GetAuthorizationToken'
+                  - 'ecr:BatchCheckLayerAvailability'
+                  - 'ecr:GetDownloadUrlForLayer'
+                  - 'ecr:BatchGetImage'
+
+                  ## logging
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: "*"
+
+Outputs:
+  ECSTaskExecutionRole:
+    Description: ECS Task Execution Role
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+    Export:
+      Name: !Join ['-', [!Ref EnvName, 'ECSTaskExecutionRole']]

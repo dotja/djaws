@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create load balancer, security groups and task definition.
+Parameters:
+  EnvName:
+    Description: The environment name.
+    Type: String
+    Default: 'PROD'
+
+  ContainerPort:
+    Description: Container port.
+    Type: Number
+    Default: 8000
+
+  ImageUrl:
+    Description: Container image.
+    Type: String
+    Default: ""
+
+Resources:
+  PublicLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the public facing load balancer.
+      VpcId:
+        'Fn::ImportValue': !Sub "${EnvName}-VPC"
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1
+
+  PublicLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - 'Fn::ImportValue': !Sub "${EnvName}-PublicSubnet1"
+        - 'Fn::ImportValue': !Sub "${EnvName}-PublicSubnet2"
+      SecurityGroups:
+        - !Ref PublicLoadBalancerSecurityGroup
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the ECS containers.
+      VpcId:
+        'Fn::ImportValue': !Sub "${EnvName}-VPC"
+
+  ECSSecurityGroupIngressFromPublicALB:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the public ALB.
+      GroupId: !Ref ECSSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref PublicLoadBalancerSecurityGroup
+
+  ECSSecurityGroupIngressFromSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from other containers in the same security group
+      GroupId: !Ref ECSSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref ECSSecurityGroup
+
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      TargetType: ip
+      Name: !Join ['-', [!Ref EnvName, 'Service']]
+      Port: !Ref ContainerPort
+      Name: "target-group"
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: 
+        'Fn::ImportValue': !Sub "${EnvName}-VPC"
+
+  PublicLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - PublicLoadBalancer
+      - TargetGroup
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: 'forward'
+      LoadBalancerArn: !Ref PublicLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref EnvName
+      Cpu: 512
+      Memory: "2GB"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn:
+        'Fn::ImportValue': !Sub "${EnvName}-ECSTaskExecutionRole"
+      TaskRoleArn:
+        'Fn::ImportValue': !Sub "${EnvName}-ECSTaskExecutionRole"
+      ContainerDefinitions:
+        - Name: !Ref EnvName
+          Image: !Ref ImageUrl
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+          Environment:
+            - Name: 'DB_PORT'
+              Value: 5432
+            - Name: 'DJANGO_SETTINGS_MODULE'
+              Value: 'settings.prod'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Ref EnvName
+
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "${EnvName}-Logs"
+      RetentionInDays: 1
+
+
+Outputs:
+
+  PublicLoadBalancer:
+    Description: Public Load Balancer
+    Value: !Ref PublicLoadBalancer
+    Export:
+      Name: !Join ['-', [!Ref EnvName, 'PublicLoadBalancer']]
+
+  ECSSecurityGroup:
+    Description: ECS Security Group
+    Value: !Ref ECSSecurityGroup
+    Export:
+      Name: !Join ['-', [!Ref EnvName, 'ECSSecurityGroup']]
+
+  ECSCluster:
+    Description: ECS Cluster
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Join ['-', [!Ref EnvName, 'ECSCluster']]
+
+  TargetGroup:
+    Description: Target Group
+    Value: !Ref TargetGroup
+    Export:
+      Name: !Join ['-', [!Ref EnvName, 'TargetGroup']]
+
+  TaskDefinition:
+    Description: Task Definition
+    Value: !Ref TaskDefinition
+    Export:
+      Name: !Join ['-', [!Ref EnvName, 'TaskDefinition']]

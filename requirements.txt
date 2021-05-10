@@ -1,0 +1,7 @@
+boto3
+botocore
+Django
+django-storages
+djangorestframework
+gunicorn
+psycopg2

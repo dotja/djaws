@@ -1,0 +1,37 @@
+version: '3.7'
+
+services:
+  db:
+    image: postgres
+    container_name: db
+    ports:
+      - '5438:5432'
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  fl_gunicorn:
+    container_name: fl_gunicorn
+    volumes:
+      - ./myproject/static:/static
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  nginx:
+    build: ./nginx
+    volumes:
+      - ./myproject/static:/static
+    ports:
+      - "80:80"
+    depends_on:
+      - fl_gunicorn

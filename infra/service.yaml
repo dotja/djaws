@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create the ECS service.
+Parameters:
+  EnvName:
+    Description: The environment name.
+    Type: String
+    Default: 'PROD'
+
+  ContainerPort:
+    Description: Container port.
+    Type: Number
+    Default: 8000
+
+Resources:
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Ref EnvName
+      Cluster:
+        'Fn::ImportValue': !Sub "${EnvName}-ECSCluster"
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - 'Fn::ImportValue': !Sub "${EnvName}-ECSSecurityGroup"
+          Subnets:
+            - 'Fn::ImportValue': !Sub "${EnvName}-PrivateSubnet1"
+            - 'Fn::ImportValue': !Sub "${EnvName}-PrivateSubnet2"
+      TaskDefinition:
+        'Fn::ImportValue': !Sub "${EnvName}-TaskDefinition"
+      LoadBalancers:
+        - ContainerName: !Ref EnvName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn:
+            'Fn::ImportValue': !Sub "${EnvName}-TargetGroup"

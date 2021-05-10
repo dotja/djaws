@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+
+<head>
+  {% load static %}
+  <link rel="shortcut icon" type="image/png" href="{% static 'favicon.ico' %}" />
+	<title>{% block title %} myproject {% endblock %}</title>
+</head>
+
+<body>
+
+  {% if error %}
+
+  <div style="color:red;">{{ error }}</div>
+
+  {% endif %}
+
+  <form action="/entry/" method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Submit">
+  </form>
+
+</body>
+</html>

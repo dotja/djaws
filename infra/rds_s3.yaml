@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create parameters, secrets , S3 bucket and Postgres RDS.
+Parameters:
+  EnvName:
+    Description: The environment name.
+    Type: String
+    Default: 'PROD'
+
+  BucketName:
+    Description: The S3 bucket name.
+    Type: String
+    Default: ""
+
+Resources:
+  DjangoSecretKey:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: SECRET_KEY of Django as a parameter.
+      Name: /Prod/DjangoSecret
+      Type: String
+      Value: "Dummy-value-updated-later"
+
+  BucketNameParamater:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Description: S3 bucket name as a parameter.
+      Name: /Prod/BucketName
+      Type: String
+      Value: !Ref BucketName
+
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      AccessControl: PublicRead
+
+  MyRDSSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: 'ProdDBSecret'
+      Description: 'Create DB credentials including DB password.'
+      GenerateSecretString:
+        RequireEachIncludedType: True
+        SecretStringTemplate: '{"username": "db_user", "assigned_name": "postgres"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 25
+        ExcludePunctuation: True
+
+  MyDBSubnetGroup: 
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for the DB."
+      SubnetIds: 
+        - 'Fn::ImportValue': !Sub "${EnvName}-PrivateSubnet1"
+        - 'Fn::ImportValue': !Sub "${EnvName}-PrivateSubnet2"
+
+  MyRDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      EnableIAMDatabaseAuthentication: true
+      AllocatedStorage: 20
+      DBInstanceClass: db.t2.micro
+      Engine: postgres
+      MasterUsername: !Sub '{{resolve:secretsmanager:${MyRDSSecret}::username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${MyRDSSecret}::password}}'
+      DBSubnetGroupName: !Ref MyDBSubnetGroup
+      BackupRetentionPeriod: 0
+      VPCSecurityGroups: 
+        - 'Fn::ImportValue': !Sub "${EnvName}-ECSSecurityGroup"
+
+  SecretRDSInstanceAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref MyRDSSecret
+      TargetId: !Ref MyRDSInstance
+      TargetType: AWS::RDS::DBInstance
+
