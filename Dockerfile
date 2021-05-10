@@ -12,8 +12,8 @@ RUN \
 
 COPY ./myproject /myproject
 
-COPY ./entrypoint.sh /myproject
+COPY ./db_init.sh /myproject
 
 WORKDIR /myproject
 
-ENTRYPOINT ["sh", "./entrypoint.sh"]
+ENTRYPOINT ["sh", "./db_init.sh"]
