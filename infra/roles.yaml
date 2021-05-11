@@ -27,7 +27,6 @@ Resources:
                   - 'kms:Decrypt'
                   - 'secretsmanager:GetSecretValue'
                   - 'ssm:GetParameter'
-                  #- 'ssm:*'
 
                   ## database
                   - 'rds-db:connect'

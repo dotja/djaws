@@ -12,8 +12,8 @@ RUN \
 
 COPY ./myproject /myproject
 
-COPY ./db_init.sh /myproject
+COPY ./containers/app.sh /myproject
 
 WORKDIR /myproject
 
-ENTRYPOINT ["sh", "./db_init.sh"]
+ENTRYPOINT ["sh", "./app.sh"]

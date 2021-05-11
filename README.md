@@ -4,7 +4,7 @@
 
 Use **DJAWS** to deploy a Django container on AWS. This repo contains a small Django project called _myproject_ that needs access to a Postgres backend and an S3 bucket. The code in this repo will:
 
-* deploy _myproject_ **locally** with Docker Compose using 3 containers (Gunicorn, Nginx and Postgres)
+* deploy _myproject_ **locally** with Docker Compose using 4 containers (Gunicorn, Nginx, Postgres and a container to migrate the DB and collect the static files)
 * deploy _myproject_ in **production** on AWS Elastic Container Service (ECS)
 
 Deploying on ECS is done via Cloudformation YAML files in the _infra/_ directory. The Django app would be reached via the load balancer URL.
@@ -24,15 +24,23 @@ aws --version
 
 ### Deployment to AWS
 
-Deployment can be carried out from your local machine and it consists of 7 steps:
+Deployment can be carried out from your local machine and it consists of the steps below:
 
-1. Build the Docker image for _myproject_ and push it to the Elastic Container Registry (ECR)
-2. Create the VPC stack (includes public subnets, private subnets, internet gateway, elastic IPs, Nat gateways, route tables)
-3. Create the execution role for the ECS task
-4. Create the load balancer, security group and task definition
-5. Create the Postgres RDS, S3 bucket and their secrets and parameters
-6. Update the Django SECRET_KEY as a SecureString type on the parameter store and add its value
-7. Launch the ECS Service.
+#### Building the Container Images
+1. Build the Docker image for _myproject_ that will do the DB migration and static collection. Push the image to the Elastic Container Registry (ECR)
+2. Build the Docker image for _myproject_ that will launch the app. Push the image to the Elastic Container Registry (ECR)
+
+
+#### Creating the Infrastructure on AWS
+3. Create the VPC stack (includes public subnets, private subnets, internet gateway, elastic IPs, Nat gateways, route tables)
+4. Create the execution role for the ECS task
+5. Create the load balancer, security group and task definition
+6. Create the Postgres RDS, S3 bucket and their secrets and parameters
+7. Update the Django SECRET_KEY as a SecureString type on the parameter store and add its value
+
+#### Launch
+8. Run the ECS Service with the container image that will set up the DB and static files
+9. Launch the ECS Service using the container image that will launch the Django app
 
 
 ### The AWS Services Used:
@@ -67,11 +75,13 @@ The Docker image for the Django project _myproject_ will be built locally.
 
 ## Deployment in Production with AWS
 
-1. Build and push Docker image to ECR
+1. Build and push data container image to ECR
+2. Build and push app container image to ECR
 
 ```
-## build docker image
-docker build -t myproject .
+## build docker images
+docker build -t myproject_data -f /path/to/Dockerfile_data .
+docker build -t myproject_app -f /path/to/Dockerfile_app .
 
 ## create a repo on ECR
 aws ecr create-repository --repository-name myproject
@@ -79,11 +89,15 @@ aws ecr create-repository --repository-name myproject
 ## authenticate your local Docker daemon against the ECR
 $(aws ecr get-login --registry-ids <your registry ID> --no-include-email)
 
-## tag the Docker image
-docker tag myproject <your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:0.0.1
+## tag the Docker images
+docker tag myproject_data <your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:data
+
+docker tag myproject_app <your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:app
 
 ## push to ECR
-docker push <your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:0.0.1
+docker push <your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:data
+
+docker push <your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:app
 
 ## list your container images on ECR
 aws ecr list-images --repository-name myproject
@@ -92,42 +106,52 @@ aws ecr list-images --repository-name myproject
 aws ecr batch-delete-image --repository-name myproject --image-ids imageDigest=<the image digest>
 ```
 
-After the initial image is built (which does the DB migration), you will be able to change the `db_init.sh` script into an `init.sh` script that lacks the DB migration part and that will be used by the Task later on.
-
-2. The VPC stack
+3. The VPC stack
 
 ```
 cd infra
 aws cloudformation create-stack --stack-name vpc --template-body file://vpc.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
 
-3. The Execution role
+4. The Execution role
 
 ```
 aws cloudformation create-stack --stack-name roles --template-body file://roles.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
 
-4. The Load balancer, security group and task definition
+5. The Load balancer, security group and task definition
 
 ```
-aws cloudformation create-stack --stack-name lb-sg-task --template-body file://lb_sg_task.yaml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=ImageUrl,ParameterValue='<your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:0.0.1'
+## use the 'data' image
+aws cloudformation create-stack --stack-name lb-sg-task --template-body file://lb_sg_task.yaml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=ImageUrl,ParameterValue='<your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:data'
 ```
 
-5. The Postgres DB, S3 bucket and Secrets
+6. The Postgres DB, S3 bucket and Secrets
 
 ```
 aws cloudformation create-stack --stack-name rds-s3 --template-body file://rds_s3.yaml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=BucketName,ParameterValue=$(head /dev/urandom | tr -dc a-z0-9 | head -c10)
 ```
 
-6. Update SECRET_KEY in the Parameter Store:
+7. Update SECRET_KEY in the Parameter Store:
 
 ```
 aws ssm put-parameter --overwrite --name /Prod/DjangoSecret --type SecureString --value <SECRET_KEY value>
 ```
 
-7. Launching the ECS Service
+8. Run the ECS Service uding the data image that will migrate the DB and collect the static files
 
 ```
+aws cloudformation create-stack --stack-name service --template-body file://service.yaml --capabilities CAPABILITY_NAMED_IAM
+```
+
+9. Run the ECS Service uding the app image that will launch the Django container
+
+```
+aws cloudformation delete-stack --stack-name service
+
+## use the 'app' image this time
+aws cloudformation update-stack --stack-name lb-sg-task --template-body file://lb_sg_task.yaml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=ImageUrl,ParameterValue='<your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:app'
+
 aws cloudformation create-stack --stack-name service --template-body file://service.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
 

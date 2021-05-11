@@ -13,6 +13,18 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
 
+  app_data:
+    container_name: app_data
+    volumes:
+      - ./myproject/static:/static
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./Dockerfile_data
+    depends_on:
+      - db
+
   fl_gunicorn:
     container_name: fl_gunicorn
     volumes:
@@ -21,11 +33,12 @@ services:
       - .env
     build:
       context: .
-      dockerfile: ./Dockerfile
+      dockerfile: ./Dockerfile_app
     ports:
       - "8000:8000"
     depends_on:
       - db
+      - app_data
 
   nginx:
     build: ./nginx

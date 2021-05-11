@@ -7,5 +7,23 @@
 </head>
 
 <body>
+	<div>
+		
+      {% if all_info|length > 0 %}
+        {% for info in all_info %}
+        <div>
+          <h5>{{ info.name }}</h5>
+          <h5>{{ info.diet }}</h5>
+          <h5>{{ info.created_on }}</h5>
+        </div>
+        </a>
+        {% endfor %}
+      <br>
+      Go to <a href="{% url 'entry' %}">Entry</a>.
+      {% else %}
+      You don't have any info in your database yet. Go to <a href="{% url 'entry' %}">Entry</a>.
+      {% endif %}
+
+	</div>
 </body>
 </html>

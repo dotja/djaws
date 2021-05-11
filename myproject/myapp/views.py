@@ -6,7 +6,8 @@ from datetime import datetime
 
 
 def home(request):
-	return render(request, 'home.html')
+	all_info = Info.objects.all()
+	return render(request, 'home.html', {'all_info': all_info})
 
 
 
