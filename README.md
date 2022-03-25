@@ -12,7 +12,9 @@ Deploying on ECS is done via Cloudformation YAML files in the _infra/_ directory
 
 ### Installing AWS CLI
 
-It is advised that the root user of your AWS account not to be used during deployment or most other activities. It is better to create a new group and a user belonging to that group. The user would have programmatic but limited access and you can store the user's credentials locally in `~/.aws/credentials`.
+It is advised that the root user of your AWS account not be used during deployment or most other activities. It is better to create a new group and a user belonging to that group. The user would have programmatic but limited access and you can store the user's credentials locally in `~/.aws/credentials`. 
+
+> The group will probably exceed the limit of 10 policies, therefore a [new customer-managed policy should be created by consolidating permissions](https://stackoverflow.com/a/57875674/1037128).
 
 ```
 ## install aws cli
@@ -27,7 +29,7 @@ aws --version
 Deployment can be carried out from your local machine and it consists of the steps below:
 
 #### Building the Container Images
-1. Build the Docker image for _myproject_ that will do the DB migration and static collection. Push the image to the Elastic Container Registry (ECR)
+1. Build the Docker image for _myproject_ that will carry out the DB migration and static collection. Push the image to the Elastic Container Registry (ECR)
 2. Build the Docker image for _myproject_ that will launch the app. Push the image to the Elastic Container Registry (ECR)
 
 
@@ -53,7 +55,7 @@ Deployment can be carried out from your local machine and it consists of the ste
 * Postgres RDS
 * S3 bucket
 * Secrets Manager
-* Parameter Store
+* SSM: Parameter Store
 * CloudWatch
 
 
@@ -138,13 +140,13 @@ aws cloudformation create-stack --stack-name rds-s3 --template-body file://rds_s
 aws ssm put-parameter --overwrite --name /Prod/DjangoSecret --type SecureString --value <SECRET_KEY value>
 ```
 
-8. Run the ECS Service uding the data image that will migrate the DB and collect the static files
+8. Run the ECS Service adding the data image that will migrate the DB and collect the static files
 
 ```
 aws cloudformation create-stack --stack-name service --template-body file://service.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
 
-9. Run the ECS Service uding the app image that will launch the Django container
+9. Run the ECS Service adding the app image that will launch the Django container
 
 ```
 aws cloudformation delete-stack --stack-name service
