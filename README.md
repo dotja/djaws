@@ -14,7 +14,7 @@ Deploying on ECS is done via Cloudformation YAML files in the _infra/_ directory
 
 It is advised that the root user of your AWS account not be used during deployment or most other activities. It is better to create a new group and a user belonging to that group. The user would have programmatic but limited access and you can store the user's credentials locally in `~/.aws/credentials`. 
 
-> The group will probably exceed the limit of 10 policies, therfore a [new customer-managed policy should be created by consolidating permissions](https://stackoverflow.com/a/57875674/1037128).
+> The group will probably exceed the limit of 10 policies, therefore a [new customer-managed policy should be created by consolidating permissions](https://stackoverflow.com/a/57875674/1037128).
 
 ```
 ## install aws cli
