@@ -5,3 +5,4 @@ django-storages
 djangorestframework
 gunicorn
 psycopg2
+tzdata
