@@ -89,7 +89,7 @@ docker build -t myproject_app -f /path/to/Dockerfile_app .
 aws ecr create-repository --repository-name myproject
 
 ## authenticate your local Docker daemon against the ECR
-$(aws ecr get-login --registry-ids <your registry ID> --no-include-email)
+aws ecr get-login-password --region <your region> | docker login --username AWS --password-stdin <your registry ID>.dkr.ecr.<your region>.amazonaws.com
 
 ## tag the Docker images
 docker tag myproject_data <your registry ID>.dkr.ecr.<your region>.amazonaws.com/myproject:data
